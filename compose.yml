@@ -1,0 +1,94 @@
+version: "3.8"
+name: bytebot
+
+services:
+  bytebot-desktop:
+    image: ghcr.io/bytebot-ai/bytebot-desktop:edge
+    container_name: bytebot-desktop
+    restart: unless-stopped
+    shm_size: "2g"
+    hostname: computer
+    privileged: true
+    ports:
+      - "9990:9990"
+    environment:
+      - DISPLAY=:0
+    networks:
+      - bytebot-network
+
+  postgres:
+    image: postgres:16-alpine
+    container_name: bytebot-postgres
+    restart: unless-stopped
+    ports:
+      - "5432:5432"
+    environment:
+      - POSTGRES_PASSWORD=postgres
+      - POSTGRES_USER=postgres
+      - POSTGRES_DB=bytebotdb
+    networks:
+      - bytebot-network
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+
+  llmgateway:
+    build:
+      context: ./llmgateway
+      dockerfile: Dockerfile
+    image: llmgateway-custom
+    container_name: llmgateway
+    restart: unless-stopped
+    environment:
+      - HF_API_KEY=${HF_API_KEY}
+      - HF_MODEL=${HF_MODEL}
+      - OPENROUTER_API_KEY=${OPENROUTER_API_KEY}
+      - OPENROUTER_MODEL=${OPENROUTER_MODEL}
+      - LOCAL_MODEL_PATH=${LOCAL_MODEL_PATH}
+    ports:
+      - "7000:7000"
+    volumes:
+      - ./models:/models:Z
+      - ./llmgateway/config.yaml:/app/config.yaml:ro
+      - ./llmgateway/download_models.sh:/app/download_models.sh:ro
+    networks:
+      - bytebot-network
+
+  bytebot-agent:
+    image: ghcr.io/bytebot-ai/bytebot-agent:edge
+    container_name: bytebot-agent
+    restart: unless-stopped
+    ports:
+      - "9991:9991"
+    environment:
+      - DATABASE_URL=${DATABASE_URL}
+      - BYTEBOT_DESKTOP_BASE_URL=${BYTEBOT_DESKTOP_BASE_URL}
+      - OPENAI_API_BASE=http://llmgateway:7000/v1
+      - OPENAI_API_KEY=dummy
+      - OPENAI_MODEL=default
+    depends_on:
+      - llmgateway
+      - postgres
+    networks:
+      - bytebot-network
+
+  bytebot-ui:
+    image: ghcr.io/bytebot-ai/bytebot-ui:edge
+    container_name: bytebot-ui
+    restart: unless-stopped
+    ports:
+      - "9992:9992"
+    environment:
+      - NODE_ENV=production
+      - BYTEBOT_AGENT_BASE_URL=${BYTEBOT_AGENT_BASE_URL}
+      - BYTEBOT_DESKTOP_VNC_URL=${BYTEBOT_DESKTOP_VNC_URL}
+    depends_on:
+      - bytebot-agent
+    networks:
+      - bytebot-network
+
+networks:
+  bytebot-network:
+    driver: bridge
+
+volumes:
+  postgres_data:
