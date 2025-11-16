@@ -1,0 +1,53 @@
+# ==========================
+# FILE TEMPORANEI E CACHE
+# ==========================
+*.pyc
+*.pyo
+*.pyd
+__pycache__/
+*.log
+*.sqlite3
+*.db
+*.egg-info/
+*.swp
+*.swo
+
+# ==========================
+# VIRTUAL ENV / ENVIRONMENTS
+# ==========================
+venv/
+.env
+.env.local
+.env.*.local
+
+# ==========================
+# GIT E CONTROLLI VERSIONE
+# ==========================
+.git
+.gitignore
+
+# ==========================
+# FILE NON NECESSARI ALLA BUILD
+# ==========================
+node_modules/
+dist/
+build/
+*.bak
+*.tmp
+
+# ==========================
+# MODELLI GRANDI
+# ==========================
+# Li montiamo come volume, quindi NON copiamo nella build
+models/
+
+# ==========================
+# NOTE IMPORTANTI
+# ==========================
+# - Il container ha bisogno di:
+#   ./llmgateway/config.yaml
+#   ./llmgateway/download_models.sh
+#   ./llmgateway/Dockerfile
+#   ./llmgateway/llm_gateway.py (o equivalenti)
+#   I volumi per ./models
+# - Tutto il resto può essere ignorato per velocizzare la build e ridurre la dimensione dell'immagine
