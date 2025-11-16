@@ -1,0 +1,43 @@
+server:
+  host: 0.0.0.0
+  port: 7000
+  log_level: info
+
+providers:
+  - name: local
+    type: llama.cpp
+    model_path: ${LOCAL_MODEL_PATH}
+    enabled: true
+    params:
+      n_ctx: 4096
+      n_threads: 4
+      n_gpu_layers: 0
+      f16_kv: true
+      use_mlock: true
+
+  - name: hf
+    type: huggingface
+    api_key: ${HF_API_KEY}
+    model: ${HF_MODEL}
+    enabled: true
+
+  - name: openrouter
+    type: openrouter
+    api_key: ${OPENROUTER_API_KEY}
+    model: ${OPENROUTER_MODEL}
+    enabled: true
+
+auto_pick:
+  enabled: true
+  priority: [local, hf, openrouter]
+  timeout_ms: 30000
+  max_retries: 2
+
+cache:
+  enabled: true
+  max_size: 1000
+  ttl_seconds: 3600
+
+rate_limit:
+  enabled: true
+  requests_per_minute: 60
