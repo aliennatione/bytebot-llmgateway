@@ -1,0 +1,75 @@
+# ========================
+# OS / Editor
+# ========================
+*.DS_Store
+*.swp
+*.swo
+*.bak
+*.tmp
+*.log
+.vscode/
+.idea/
+__pycache__/
+*.pyc
+
+# ========================
+# Environment / Secrets
+# ========================
+.env
+.env.local
+.env.*.backup
+*.key
+*.pem
+*.crt
+
+# ========================
+# Docker / Containers
+# ========================
+docker-compose.override.yml
+docker-compose.override.yaml
+*.pid
+*.sock
+
+# ========================
+# Python / Virtualenv
+# ========================
+venv/
+.venv/
+*.egg-info/
+*.egg
+pip-log.txt
+__pypackages__/
+
+# ========================
+# Bytebot / LLMGateway specific
+# ========================
+llmgateway/llm_gateway.pyc
+llmgateway/__pycache__/
+/llmgateway/venv/
+/bytebot-desktop/node_modules/
+/bytebot-ui/node_modules/
+/bytebot-agent/node_modules/
+# Esclude i modelli locali (/models/) perché possono essere grandi e riscaricati con download_models.sh.
+/models/
+
+# ========================
+# Logs
+# ========================
+logs/
+*.log
+*.out
+
+# ========================
+# Build artifacts
+# ========================
+dist/
+build/
+*.tar.gz
+*.whl
+
+# ========================
+# Misc
+# ========================
+*.bak
+*.old
+*.tmp
