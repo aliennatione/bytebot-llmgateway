@@ -453,3 +453,228 @@ Di seguito un diagramma logico del flusso tra Bytebot, LLMGateway e i modelli:
 | `podman compose -f compose.yml down`  | Ferma e rimuove i container                                            |
 | `podman logs llmgateway`              | Mostra i log di LLMGateway per debugging e diagnostica                 |
 
+---
+---
+
+Perfetto! Ti creo un **README.md unico, completo e aggiornato**, che include:
+
+* Introduzione ai progetti Bytebot e LLMGateway
+* Motivazioni per l’integrazione
+* Struttura della repository (grafo testuale)
+* Installazione e configurazione passo passo
+* Descrizione dei file principali
+* Comandi utili
+* Architettura dei flussi dati
+* Scenari d’uso e sicurezza
+
+---
+
+```markdown
+# Bytebot — LLMGateway Integration
+
+## 🔹 Introduzione
+
+Questo progetto integra **LLMGateway** con **Bytebot**, permettendo a Bytebot di utilizzare modelli LLM locali (in formato GGUF) e provider remoti come Hugging Face o OpenRouter.  
+In pratica, Bytebot può diventare un **agent AI desktop self-hosted** capace di:
+
+- Automatizzare attività sul desktop Linux containerizzato
+- Usare modelli locali potenti senza dipendere esclusivamente da API cloud
+- Effettuare fallback verso modelli remoti se necessario
+
+---
+
+## 🌳 Struttura della repository
+
+```
+
+bytebot-llmgateway/
+├── llmgateway/
+│   ├── config.yaml          # Configurazione server LLMGateway
+│   └── Dockerfile           # Dockerfile custom LLMGateway
+├── .env.example              # Esempio di variabili d'ambiente
+├── compose.yml               # File principale Podman / Docker Compose
+├── docker-compose.yml        # Variante alternativa Compose
+├── download_models.sh        # Script per scaricare modelli GGUF
+├── select_model.sh           # Script per selezionare il modello locale
+├── README_compose.md         # Documentazione legacy / aggiuntiva
+└── README.md                  # Questo README principale
+
+````
+
+---
+
+## 🔍 Cos’è Bytebot + LLMGateway
+
+### Bytebot
+Bytebot è un **agent AI desktop open-source**, eseguito in container Linux isolati, che può:
+
+- Digitare, cliccare, navigare sul web e interagire con applicazioni  
+- Automatizzare flussi complessi come farebbe un umano  
+- Esporre API per la gestione di task e un’interfaccia web UI  
+
+[Documentazione Bytebot](https://docs.bytebot.ai)
+
+### LLMGateway
+LLMGateway è un **server ponte** tra:
+
+- Modelli LLM locali (GGUF, LLaMA.cpp)  
+- Provider remoti (Hugging Face, OpenRouter)  
+
+Permette a Bytebot di:
+
+- Usare modelli locali con fallback verso modelli remoti  
+- Controllare configurazioni di modello (thread, contesto, GPU)  
+- Cache delle risposte e rate-limiting  
+
+**Vantaggi principali dell’integrazione:**  
+
+- Self-hosted → privacy e sicurezza  
+- Risparmio sui costi delle API  
+- Controllo completo sui modelli  
+- Flessibilità: puoi cambiare facilmente modello locale o provider remoto
+
+---
+
+## 🔧 Guida di configurazione
+
+### 1. Clona il progetto
+```bash
+git clone <url-del-repo> bytebot-llmgateway
+cd bytebot-llmgateway
+````
+
+### 2. Prepara il file `.env`
+
+```bash
+cp .env.example .env
+```
+
+Aggiorna i valori:
+
+* `HF_API_KEY` e `HF_MODEL` → Hugging Face
+* `OPENROUTER_API_KEY` e `OPENROUTER_MODEL` → OpenRouter
+* `LOCAL_MODEL_PATH` → percorso modello GGUF locale
+* Altri valori: database, URL dei servizi Bytebot
+
+### 3. Scarica modelli locali
+
+```bash
+chmod +x download_models.sh
+./download_models.sh
+```
+
+Salva i modelli in `./models`.
+
+### 4. Seleziona il modello da usare
+
+```bash
+chmod +x select_model.sh
+./select_model.sh
+```
+
+Lo script aggiorna `LOCAL_MODEL_PATH` in `.env`.
+
+### 5. Avvia i container
+
+```bash
+podman compose -f compose.yml up -d
+# oppure
+docker-compose -f docker-compose.yml up -d
+```
+
+Container attivi:
+
+* Desktop Bytebot
+* LLMGateway
+* Agent Bytebot
+* Database PostgreSQL
+
+### 6. Verifica funzionamento
+
+* LLMGateway → `http://localhost:7000/health`
+* UI Bytebot → `http://localhost:9992`
+
+---
+
+## ⚙️ Configurazione LLMGateway (`llmgateway/config.yaml`)
+
+Definisce:
+
+* Provider LLM: locale + remoti
+* Parametri modello locale: `n_ctx`, threads, GPU
+* Fallback automatico
+* Cache e rate limiting
+
+---
+
+## 🔐 Sicurezza e benefici
+
+* Self-hosted → dati rimangono locali
+* Modelli GGUF → costi ridotti e bassa latenza
+* Fallback integrato → resilienza
+* Modulabile → facile cambiare modelli o configurazioni
+
+---
+
+## 🧰 Comandi utili
+
+| Comando                               | Descrizione                               |
+| ------------------------------------- | ----------------------------------------- |
+| `./download_models.sh`                | Scarica modelli GGUF in `./models`        |
+| `./select_model.sh`                   | Seleziona modello e aggiorna `.env`       |
+| `podman compose -f compose.yml up -d` | Avvia container Bytebot + LLMGateway + DB |
+| `podman compose -f compose.yml down`  | Ferma e rimuove container                 |
+
+---
+
+## 🏗️ Architettura e flusso dati
+
+```
++----------------+        +-------------------+        +----------------------+
+| Bytebot Agent  | -----> | LLMGateway Server | -----> | Modello Locale GGUF  |
+| (Task & UI)    |        | (Local + Remote)  |        | (LLaMA.cpp / GGUF)   |
++----------------+        +-------------------+        +----------------------+
+          |                          |
+          |                          v
+          |                    +----------------------+
+          |                    | Provider Remoti      |
+          |                    | HuggingFace / OpenR  |
+          |                    +----------------------+
+          |
+          v
+  +----------------+
+  | PostgreSQL DB  |
+  +----------------+
+```
+
+**Flusso**:
+
+1. L’agent Bytebot riceve un task dalla UI/API
+2. Invia la richiesta a LLMGateway
+3. LLMGateway prova modello locale → fallback remoto se necessario
+4. Risposta torna a Bytebot e, se necessario, salvata nel DB
+
+---
+
+## 🧪 Scenari d’uso
+
+* Automazione desktop complessa
+* Document analysis e riassunto di PDF
+* Test di agent AI interattivi
+* Automazione interna in azienda con privacy garantita
+
+---
+
+## 📌 Note
+
+* Aggiorna `.env` prima di ogni cambio modello
+* Assicurati di avere spazio sufficiente per modelli GGUF (>2–20GB a seconda del modello)
+* Controlla log dei container per debug (`podman logs <container>`)
+
+---
+
+```
+README.md generato con tutte le informazioni per installare, configurare e usare Bytebot + LLMGateway.
+```
+
+
