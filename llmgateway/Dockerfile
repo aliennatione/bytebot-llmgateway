@@ -21,7 +21,7 @@ RUN python3 -m venv /app/venv
 RUN /app/venv/bin/pip install --upgrade pip && \
     /app/venv/bin/pip install huggingface_hub tqdm
 
-COPY config.yaml .
+COPY config.yml .
 COPY download_models.sh /app/download_models.sh
 RUN chmod +x /app/download_models.sh
 
