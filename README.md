@@ -244,3 +244,280 @@ rate_limit:
 * Proteggi le chiavi API (`.env`)
 * Monitora utilizzo API per evitare costi imprevisti
 * Assicurati di avere RAM sufficiente per modelli GGUF grandi
+
+---
+
+## Ottimizzazioni per la produzione
+
+### `.dockerignore` ottimizzato produzione
+
+```dockerignore
+# File di sistema
+*.swp
+*.swo
+*.DS_Store
+Thumbs.db
+.idea/
+.vscode/
+
+# Configurazioni locali / segreti
+.env
+.env.local
+.env.*.backup
+
+# Modelli GGUF: li monteremo via volume
+models/
+
+# Database locali
+*.db
+*.sqlite
+data/
+
+# Cache / file temporanei
+__pycache__/
+*.pyc
+*.pyo
+*.pyd
+*.egg-info/
+*.pytest_cache/
+*.mypy_cache/
+*.coverage
+.cache/
+.tmp/
+
+# Documentazione locale
+*.md.bak
+
+# Docker / Compose locali
+docker-compose.override.yml
+compose.override.yml
+
+# File di archivio e backup
+*.zip
+*.tar.gz
+*.bak
+```
+
+---
+
+### Suggerimenti per Dockerfile leggero
+
+1. **Usare immagini base minime**
+
+   ```dockerfile
+   FROM python:3.12-slim
+   ```
+2. **Installare solo dipendenze necessarie**
+
+   ```dockerfile
+   RUN pip install --no-cache-dir -r requirements.txt
+   ```
+3. **Montare modelli via volume invece di copiarli**
+
+   ```yaml
+   volumes:
+     - ./models:/app/models
+   ```
+4. **Non includere `.env` nel container**, passarlo come variabile d’ambiente in `docker-compose.yml` o runtime.
+
+---
+
+### O ancora...
+
+Ecco un esempio di **`docker-compose.yml` pronto per produzione** per la tua app, con montaggio dei modelli, gestione sicura delle variabili d’ambiente e immagini leggere:
+
+
+##@# `docker-compose.yml` esempio
+
+```yaml
+version: "3.9"
+
+services:
+  app:
+    image: my-llm-app:latest  # oppure build: ./ se vuoi costruirlo localmente
+    build:
+      context: .
+      dockerfile: Dockerfile
+    container_name: llm_app
+    restart: unless-stopped
+    environment:
+      - APP_ENV=production
+      - API_KEY=${API_KEY}      # variabile d'ambiente locale
+      - MODEL_PATH=/app/models  # path dentro il container
+    volumes:
+      - ./models:/app/models   # monta i modelli senza copiarli nell'immagine
+    ports:
+      - "8000:8000"            # esponi la porta della tua app
+    logging:
+      driver: "json-file"
+      options:
+        max-size: "10m"
+        max-file: "3"
+```
+
+---
+
+##### Come usarlo
+
+1. Metti i modelli nella cartella `./models` **locale**.
+2. Crea un file `.env` (che non va nel repo) con le variabili sensibili:
+
+   ```
+   API_KEY=la_tua_chiave
+   ```
+3. Avvia l’app:
+
+   ```bash
+   docker compose up -d --build
+   ```
+4. L’app sarà accessibile su `http://localhost:8000` (o altra porta se modificata).
+
+---
+
+#### `Dockerfile`
+
+```dockerfile
+# Immagine base leggera
+FROM python:3.12-slim
+
+# Setta la cartella di lavoro
+WORKDIR /app
+
+# Copia solo i file necessari per le dipendenze
+COPY pyproject.toml poetry.lock* /app/
+
+# Installa pip e Poetry senza cache
+RUN pip install --no-cache-dir poetry \
+    && poetry config virtualenvs.create false \
+    && poetry install --no-dev --no-interaction --no-ansi
+
+# Copia il codice dell'app
+COPY . /app
+
+# Espone la porta dell'app FastAPI
+EXPOSE 8000
+
+# Variabile d'ambiente per i modelli
+ENV MODEL_PATH=/app/models
+
+# Comando per avviare Uvicorn in modalità produzione
+CMD ["uvicorn", "main:app", "--host", "0.0.0.0", "--port", "8000", "--workers", "2", "--log-level", "info"]
+```
+
+---
+
+##### Spiegazioni delle scelte
+
+1. **Uvicorn con workers**: `--workers 2` permette di gestire più richieste in parallelo senza bisogno di Gunicorn (leggero e semplice).
+2. **`log-level info`**: log leggibili senza spam da debug.
+3. **FastAPI app**: assume che il tuo file principale sia `main.py` con `app = FastAPI()`.
+4. **MODEL_PATH**: variabile d’ambiente per puntare ai modelli, così non li inserisci nell’immagine.
+
+---
+
+
+#### `Dockerfile` multi-stage
+
+Oppure una versione multi-stage build ottimizzata per ridurre drasticamente la dimensione dell’immagine Docker:
+
+```dockerfile
+# --------------------------
+# Stage 1: Build
+# --------------------------
+FROM python:3.12-slim AS builder
+
+WORKDIR /app
+
+# Copia i file di dipendenze
+COPY pyproject.toml poetry.lock* /app/
+
+# Installa Poetry e le dipendenze
+RUN pip install --no-cache-dir poetry \
+    && poetry config virtualenvs.create false \
+    && poetry install --no-dev --no-interaction --no-ansi
+
+# Copia il codice sorgente
+COPY . /app
+
+# --------------------------
+# Stage 2: Runtime leggero
+# --------------------------
+FROM python:3.12-slim
+
+WORKDIR /app
+
+# Copia solo il necessario dal builder
+COPY --from=builder /app /app
+
+# Espone la porta dell'app
+EXPOSE 8000
+
+# Variabile d’ambiente per i modelli
+ENV MODEL_PATH=/app/models
+
+# Comando per avviare FastAPI con Uvicorn
+CMD ["uvicorn", "main:app", "--host", "0.0.0.0", "--port", "8000", "--workers", "2", "--log-level", "info"]
+```
+
+---
+
+##### ✅ Vantaggi
+
+1. L’immagine finale **non contiene Poetry né cache di build**, quindi molto più leggera.
+2. Mantiene la gestione dei workers e il logging ottimale.
+3. Rimane semplice da leggere e da modificare.
+
+---
+
+#### `.dockerignore`
+
+Ecco una `.dockerignore` ottimizzata per il tuo progetto Python/FastAPI con Poetry:
+
+```gitignore
+# File di sistema e cache
+__pycache__/
+*.pyc
+*.pyo
+*.pyd
+*.swp
+*.DS_Store
+*.egg-info/
+*.egg
+.env
+
+# Cartelle di build locali
+build/
+dist/
+*.log
+
+# Virtualenv locali (se ne hai)
+.venv/
+venv/
+
+# File di configurazione IDE
+.vscode/
+.idea/
+*.iml
+
+# Modelli temporanei o dati grandi (se li rigeneri a runtime)
+*.sqlite
+*.db
+*.tmp
+
+# Git
+.git/
+.gitignore
+
+# Docker
+Dockerfile*
+docker-compose*.yml
+```
+
+---
+
+##### ✅ Note
+
+* Ignora tutto ciò che **non serve nel container**, riducendo la dimensione finale.
+* Puoi **aggiungere modelli grandi o dataset** se vuoi copiarli solo in runtime, così il container resta leggero.
+* Mantiene comunque tutto ciò che serve per l’esecuzione dell’app e dei modelli.
+
